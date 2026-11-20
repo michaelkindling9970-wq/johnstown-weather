@@ -364,6 +364,9 @@
     const LON = -78.9220;
     const TZ = "America/New_York";
     const REFRESH_MS = 15 * 60 * 1000;
+    const COOLDOWN_MS = 10 * 60 * 1000;
+    const COOLDOWN_KEY = "jw-refresh-until";
+    const REFRESH_LABEL = "Refresh now";
     const FORECAST_QS = new URLSearchParams({
       latitude: String(LAT),
       longitude: String(LON),
@@ -424,6 +427,58 @@
     const $ = (id) => document.getElementById(id);
     const bannerEl = $("banner");
     const refreshBtn = $("refresh");
+    let cooldownUntil = 0;
+    let cooldownTimer = null;
+
+    function readStoredCooldown() {
+      try {
+        return Number(localStorage.getItem(COOLDOWN_KEY) || 0) || 0;
+      } catch (e) {
+        return 0;
+      }
+    }
+
+    function cooldownRemaining() {
+      return Math.max(0, Math.max(cooldownUntil, readStoredCooldown()) - Date.now());
+    }
+
+    function formatCountdown(ms) {
+      const total = Math.max(0, Math.ceil(ms / 1000));
+      const m = Math.floor(total / 60);
+      const s = total % 60;
+      return m + ":" + String(s).padStart(2, "0");
+    }
+
+    function updateCooldownUi() {
+      const left = cooldownRemaining();
+      if (left > 0) {
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = "Refresh available in " + formatCountdown(left);
+        return true;
+      }
+      refreshBtn.textContent = REFRESH_LABEL;
+      refreshBtn.disabled = false;
+      if (cooldownTimer) {
+        clearInterval(cooldownTimer);
+        cooldownTimer = null;
+      }
+      try { localStorage.removeItem(COOLDOWN_KEY); } catch (e) {}
+      cooldownUntil = 0;
+      return false;
+    }
+
+    function startCooldownWatch() {
+      updateCooldownUi();
+      if (cooldownRemaining() > 0 && !cooldownTimer) {
+        cooldownTimer = setInterval(updateCooldownUi, 250);
+      }
+    }
+
+    function beginCooldown() {
+      cooldownUntil = Date.now() + COOLDOWN_MS;
+      try { localStorage.setItem(COOLDOWN_KEY, String(cooldownUntil)); } catch (e) {}
+      startCooldownWatch();
+    }
 
     function weatherInfo(code, isDay) {
       const day = isDay !== 0;
@@ -743,10 +798,17 @@
         $("updated").dateTime = new Date().toISOString();
         $("updated").textContent = "Updated " + formatUpdated(new Date());
       }
-      refreshBtn.disabled = false;
+      if (!updateCooldownUi()) {
+        refreshBtn.disabled = false;
+      }
     }
 
-    refreshBtn.addEventListener("click", load);
+    refreshBtn.addEventListener("click", function () {
+      beginCooldown();
+      load();
+    });
+    cooldownUntil = readStoredCooldown();
+    startCooldownWatch();
     load();
     setInterval(load, REFRESH_MS);
   })();
