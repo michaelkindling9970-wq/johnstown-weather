@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Current weather, forecast, and air quality for Johnstown, Pennsylvania. Data from Open-Meteo.">
+  <meta name="theme-color" content="#12151a">
+  <title>Johnstown, PA Weather &amp; Air Quality</title>
+  <style>
+    :root {
+      --bg: #12151a;
+      --bg-elev: #1c2129;
+      --bg-hover: #242b35;
+      --line: #323a46;
+      --text: #f3efe6;
+      --muted: #9aa3ad;
+      --gold: #d7a441;
+      --gold-dim: #8a6a28;
+      --shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+      --radius: 14px;
+      --font: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
+      --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      background:
+        radial-gradient(1200px 600px at 50% -10%, #243044 0%, transparent 60%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.45;
+    }
+
+    .wrap {
+      width: min(880px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 48px;
+    }
+
+    header.mast {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-end;
+      border-bottom: 1px solid var(--gold-dim);
+      padding-bottom: 16px;
+      margin-bottom: 22px;
+    }
+
+    .place {
+      font-family: var(--serif);
+      font-weight: 600;
+      font-size: clamp(1.6rem, 4vw, 2.15rem);
+      letter-spacing: 0.01em;
+      margin: 0;
+      line-height: 1.15;
+    }
+
+    .place span {
+      display: block;
+      font-family: var(--font);
+      font-weight: 500;
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+
+    .meta {
+      text-align: right;
+      color: var(--muted);
+      font-size: 0.86rem;
+      flex: 0 0 auto;
+    }
+
+    .meta time {
+      display: block;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 2px;
+    }
+
+    button.refresh {
+      appearance: none;
+      background: transparent;
+      color: var(--gold);
+      border: 1px solid var(--gold-dim);
+      border-radius: 999px;
+      padding: 4px 12px;
+      font: inherit;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    button.refresh:hover { background: var(--bg-elev); }
+    button.refresh:disabled { opacity: 0.55; cursor: default; }
+
+    .banner {
+      display: none;
+      background: #3a2418;
+      border: 1px solid #8a4b2a;
+      color: #f3d7c4;
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      margin-bottom: 18px;
+      font-size: 0.95rem;
+    }
+    .banner.show { display: block; }
+
+    .hero, .card {
+      background: var(--bg-elev);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 8px 28px;
+      padding: 22px 24px 20px;
+      margin-bottom: 18px;
+      align-items: start;
+    }
+
+    .temp-block { display: flex; align-items: flex-start; gap: 4px; }
+    .temp {
+      font-size: clamp(4.4rem, 14vw, 6.4rem);
+      font-weight: 620;
+      letter-spacing: -0.04em;
+      line-height: 0.85;
+      font-variant-numeric: tabular-nums;
+    }
+    .temp-unit {
+      font-size: 1.35rem;
+      color: var(--muted);
+      margin-top: 8px;
+      font-weight: 600;
+    }
+
+    .condition {
+      align-self: center;
+    }
+    .condition h2 {
+      margin: 0 0 8px;
+      font-family: var(--serif);
+      font-size: clamp(1.35rem, 3vw, 1.85rem);
+      font-weight: 600;
+    }
+    .icon {
+      width: 42px;
+      height: 42px;
+      display: inline-block;
+      vertical-align: -8px;
+      margin-right: 8px;
+    }
+    .facts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .facts b { color: var(--text); font-weight: 600; }
+
+    h3.section {
+      margin: 0 0 12px;
+      font-size: 0.75rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--gold);
+      font-weight: 650;
+    }
+
+    .aq {
+      padding: 18px 20px 16px;
+      margin-bottom: 18px;
+    }
+    .aq-top {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .aqi-badge {
+      min-width: 96px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      text-align: center;
+      color: #101114;
+      font-weight: 700;
+    }
+    .aqi-badge .n {
+      display: block;
+      font-size: 2rem;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .aqi-badge .lbl { font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .aq-copy { color: var(--muted); font-size: 0.92rem; }
+    .aq-copy strong { color: var(--text); }
+
+    .pollutants {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 8px;
+    }
+    .pollutant {
+      background: #151a22;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 10px 8px;
+    }
+    .pollutant .k {
+      display: block;
+      color: var(--muted);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .pollutant .v {
+      font-size: 1.15rem;
+      font-variant-numeric: tabular-nums;
+      font-weight: 650;
+    }
+    .pollutant .u { color: var(--muted); font-size: 0.75rem; }
+
+    .hourly-card, .daily-card {
+      padding: 18px 16px 14px;
+      margin-bottom: 18px;
+    }
+
+    .hours {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 2px 4px 10px;
+      scrollbar-color: var(--line) transparent;
+    }
+    .hour {
+      flex: 0 0 76px;
+      text-align: center;
+      background: #151a22;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 6px 8px;
+    }
+    .hour .t { color: var(--muted); font-size: 0.78rem; }
+    .hour .deg {
+      display: block;
+      margin-top: 6px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .hour .pop { color: var(--muted); font-size: 0.72rem; min-height: 1em; }
+    .hour svg { width: 28px; height: 28px; margin: 4px 0; }
+
+    .days { display: flex; flex-direction: column; gap: 6px; }
+    .day {
+      display: grid;
+      grid-template-columns: 4.2rem 1.8rem minmax(0,1fr) auto auto auto;
+      gap: 8px 10px;
+      align-items: center;
+      padding: 8px 8px;
+      border-radius: 10px;
+    }
+    .day:hover { background: var(--bg-hover); }
+    .day .name { font-weight: 650; }
+    .day .cond { color: var(--muted); font-size: 0.92rem; }
+    .day .hi, .day .lo { font-variant-numeric: tabular-nums; font-weight: 650; }
+    .day .lo { color: var(--muted); min-width: 2.6rem; text-align: right; }
+    .day .pop { color: var(--muted); font-size: 0.85rem; min-width: 2.6rem; text-align: right; }
+    .day svg { width: 26px; height: 26px; }
+
+    footer {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-align: center;
+      padding-top: 6px;
+    }
+    footer a { color: var(--gold); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    .skel { color: var(--muted); }
+
+    @media (max-width: 640px) {
+      .wrap { width: min(880px, calc(100% - 20px)); padding-top: 18px; }
+      header.mast { flex-direction: column; align-items: flex-start; }
+      .meta { text-align: left; }
+      .hero { grid-template-columns: 1fr; padding: 18px 16px; }
+      .day { grid-template-columns: 3.6rem 1.6rem minmax(0,1fr) auto auto auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="mast">
+      <h1 class="place"><span>Weather &amp; air quality</span>Johnstown, Pennsylvania</h1>
+      <div class="meta">
+        <time id="updated" datetime="">Waiting for data…</time>
+        <div>Refreshes every 15 minutes</div>
+        <button class="refresh" id="refresh" type="button">Refresh now</button>
+      </div>
+    </header>
+
+    <div id="banner" class="banner" role="alert"></div>
+
+    <section class="hero" aria-label="Current conditions">
+      <div class="temp-block">
+        <div class="temp" id="temp">--</div>
+        <div class="temp-unit">°F</div>
+      </div>
+      <div class="condition">
+        <h2 id="condition"><span class="skel">Loading conditions…</span></h2>
+        <div class="facts" id="facts"></div>
+      </div>
+    </section>
+
+    <section class="card aq" aria-label="Air quality">
+      <h3 class="section">Air quality</h3>
+      <div class="aq-top">
+        <div class="aqi-badge" id="aqi-badge">
+          <span class="n" id="aqi-n">--</span>
+          <span class="lbl" id="aqi-lbl">US AQI</span>
+        </div>
+        <div class="aq-copy" id="aqi-copy">Loading air quality…</div>
+      </div>
+      <div class="pollutants" id="pollutants"></div>
+    </section>
+
+    <section class="card hourly-card" aria-label="Hourly forecast">
+      <h3 class="section">Next 24 hours</h3>
+      <div class="hours" id="hours"><div class="skel">Loading hourly forecast…</div></div>
+    </section>
+
+    <section class="card daily-card" aria-label="7-day forecast">
+      <h3 class="section">7-day forecast</h3>
+      <div class="days" id="days"><div class="skel">Loading weekly forecast…</div></div>
+    </section>
+
+    <footer>
+      Weather and air quality data by
+      <a href="https://open-meteo.com/" rel="noopener noreferrer">Open-Meteo</a>
+      (CC BY 4.0). Not an official forecast or emergency alert.
+      For warnings, see the
+      <a href="https://www.weather.gov/ctp/" rel="noopener noreferrer">National Weather Service</a>.
+    </footer>
+  </div>
+
+  <noscript>
+    <p style="text-align:center;color:#f3efe6;padding:24px">
+      This page needs JavaScript to load live weather from Open-Meteo.
+    </p>
+  </noscript>
+
+  <script>
+  (function () {
+    const LAT = 40.3267;
+    const LON = -78.9220;
+    const TZ = "America/New_York";
+    const REFRESH_MS = 15 * 60 * 1000;
+    const FORECAST_QS = new URLSearchParams({
+      latitude: String(LAT),
+      longitude: String(LON),
+      current: [
+        "temperature_2m",
+        "relative_humidity_2m",
+        "apparent_temperature",
+        "is_day",
+        "precipitation",
+        "weather_code",
+        "cloud_cover",
+        "wind_speed_10m",
+        "wind_direction_10m"
+      ].join(","),
+      hourly: [
+        "temperature_2m",
+        "weather_code",
+        "precipitation_probability",
+        "wind_speed_10m",
+        "is_day"
+      ].join(","),
+      daily: [
+        "weather_code",
+        "temperature_2m_max",
+        "temperature_2m_min",
+        "precipitation_probability_max",
+        "sunrise",
+        "sunset"
+      ].join(","),
+      temperature_unit: "fahrenheit",
+      wind_speed_unit: "mph",
+      precipitation_unit: "inch",
+      timezone: TZ,
+      forecast_days: "7"
+    }).toString();
+
+    const FORECAST_URLS = [
+      "https://api.open-meteo.com/v1/forecast?" + FORECAST_QS,
+      "https://historical-forecast-api.open-meteo.com/v1/forecast?" + FORECAST_QS
+    ];
+
+    const AQ_URL = "https://air-quality-api.open-meteo.com/v1/air-quality?" + new URLSearchParams({
+      latitude: String(LAT),
+      longitude: String(LON),
+      current: [
+        "us_aqi",
+        "pm2_5",
+        "pm10",
+        "ozone",
+        "nitrogen_dioxide",
+        "sulphur_dioxide",
+        "carbon_monoxide",
+        "uv_index"
+      ].join(","),
+      timezone: TZ
+    }).toString();
+
+    const $ = (id) => document.getElementById(id);
+    const bannerEl = $("banner");
+    const refreshBtn = $("refresh");
+
+    function weatherInfo(code, isDay) {
+      const day = isDay !== 0;
+      const map = {
+        0:  [day ? "Clear sky" : "Clear night", "clear"],
+        1:  [day ? "Mainly clear" : "Mostly clear", "clear"],
+        2:  ["Partly cloudy", "partly"],
+        3:  ["Overcast", "cloud"],
+        45: ["Fog", "fog"],
+        48: ["Icy fog", "fog"],
+        51: ["Light drizzle", "rain"],
+        53: ["Drizzle", "rain"],
+        55: ["Heavy drizzle", "rain"],
+        56: ["Freezing drizzle", "rain"],
+        57: ["Heavy freezing drizzle", "rain"],
+        61: ["Light rain", "rain"],
+        63: ["Rain", "rain"],
+        65: ["Heavy rain", "rain"],
+        66: ["Freezing rain", "rain"],
+        67: ["Heavy freezing rain", "rain"],
+        71: ["Light snow", "snow"],
+        73: ["Snow", "snow"],
+        75: ["Heavy snow", "snow"],
+        77: ["Snow grains", "snow"],
+        80: ["Light showers", "rain"],
+        81: ["Showers", "rain"],
+        82: ["Heavy showers", "rain"],
+        85: ["Light snow showers", "snow"],
+        86: ["Snow showers", "snow"],
+        95: ["Thunderstorm", "thunder"],
+        96: ["Thunderstorm with hail", "thunder"],
+        99: ["Thunderstorm with heavy hail", "thunder"]
+      };
+      return map[code] || ["Conditions unavailable", "cloud"];
+    }
+
+    function iconSvg(kind, isDay) {
+      const stroke = "#f3efe6";
+      const gold = "#d7a441";
+      const dim = "#9aa3ad";
+      if (kind === "clear") {
+        return isDay === 0
+          ? `<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="8" fill="none" stroke="${dim}" stroke-width="1.7"/><circle cx="20" cy="13" r="5.5" fill="none" stroke="${dim}" stroke-width="1.4"/></svg>`
+          : `<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="6" fill="${gold}" /><g stroke="${gold}" stroke-width="1.6" stroke-linecap="round"><path d="M16 4v3M16 25v3M4 16h3M25 16h3M7.2 7.2l2.1 2.1M22.7 22.7l2.1 2.1M7.2 24.8l2.1-2.1M22.7 9.3l2.1-2.1"/></g></svg>`;
+      }
+      if (kind === "partly") {
+        return `<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="11" cy="11" r="5" fill="${gold}"/><path d="M10 23h13.5a5 5 0 0 0 0-10 7 7 0 0 0-13.2 2" fill="none" stroke="${stroke}" stroke-width="1.7" stroke-linejoin="round"/></svg>`;
+      }
+      if (kind === "rain") {
+        return `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 16h14a5 5 0 0 0 0-10 7.2 7.2 0 0 0-13.6 2" fill="none" stroke="${stroke}" stroke-width="1.7"/><path d="M11 20l-1.5 5M16 20l-1.5 5M21 20l-1.5 5" stroke="#7eb6e0" stroke-width="1.7" stroke-linecap="round"/></svg>`;
+      }
+      if (kind === "snow") {
+        return `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 15h14a5 5 0 0 0 0-10 7.2 7.2 0 0 0-13.6 2" fill="none" stroke="${stroke}" stroke-width="1.7"/><g stroke="${stroke}" stroke-width="1.3" stroke-linecap="round"><path d="M11 20v5M9.5 21.5l3 2M9.5 24.5l3-2"/><path d="M16 20v5M14.5 21.5l3 2M14.5 24.5l3-2"/><path d="M21 20v5M19.5 21.5l3 2M19.5 24.5l3-2"/></g></svg>`;
+      }
+      if (kind === "thunder") {
+        return `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 14h14a5 5 0 0 0 0-10 7.2 7.2 0 0 0-13.6 2" fill="none" stroke="${stroke}" stroke-width="1.7"/><path d="M16 15l-3 7h4l-2 6 7-9h-4l2-4z" fill="${gold}"/></svg>`;
+      }
+      if (kind === "fog") {
+        return `<svg viewBox="0 0 32 32" aria-hidden="true"><g stroke="${dim}" stroke-width="1.7" stroke-linecap="round"><path d="M6 12h20M8 17h16M7 22h18"/></g></svg>`;
+      }
+      return `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 20h14.5a5.5 5.5 0 0 0 0-11 8 8 0 0 0-15.2 2.4" fill="none" stroke="${stroke}" stroke-width="1.7"/></svg>`;
+    }
+
+    function aqiLevel(n) {
+      if (n == null || Number.isNaN(n)) return { label: "Unavailable", color: "#9aa3ad", text: "#101114", advice: "Air quality data is unavailable." };
+      if (n <= 50) return { label: "Good", color: "#5dce86", text: "#102016", advice: "Air quality is satisfactory." };
+      if (n <= 100) return { label: "Moderate", color: "#e0c34a", text: "#201c0a", advice: "Acceptable; unusually sensitive people may notice effects." };
+      if (n <= 150) return { label: "Unhealthy for sensitive groups", color: "#e0893c", text: "#1e1208", advice: "Sensitive groups should limit prolonged outdoor activity." };
+      if (n <= 200) return { label: "Unhealthy", color: "#e04b4b", text: "#1a0b0b", advice: "Everyone may begin to feel effects; sensitive groups should stay indoors when possible." };
+      if (n <= 300) return { label: "Very unhealthy", color: "#8f5ad1", text: "#140c1c", advice: "Health warnings of emergency conditions. Avoid outdoor activity." };
+      return { label: "Hazardous", color: "#9a2a4a", text: "#fff", advice: "Emergency conditions. Everyone should avoid outdoor exertion." };
+    }
+
+    function compass(deg) {
+      if (deg == null || Number.isNaN(Number(deg))) return "";
+      const pts = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+      return pts[Math.round(((Number(deg) % 360) + 360) % 360 / 22.5) % 16];
+    }
+
+    function fmtNum(n, digits) {
+      if (n == null || Number.isNaN(Number(n))) return "—";
+      return Number(n).toLocaleString("en-US", { maximumFractionDigits: digits, minimumFractionDigits: digits === 0 ? 0 : undefined });
+    }
+
+    function fmtTemp(n) {
+      if (n == null || Number.isNaN(Number(n))) return "—";
+      return Math.round(Number(n)) + "°";
+    }
+
+    // Open-Meteo times are local clock values in America/New_York (no offset).
+    // Interpret them as ET wall times.
+    function etToDate(isoLocal) {
+      if (!isoLocal) return null;
+      const hasZone = /Z|[+-]\d{2}:\d{2}$/.test(isoLocal);
+      if (hasZone) return new Date(isoLocal);
+      const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(isoLocal);
+      if (!m) return new Date(isoLocal);
+      const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+      const hh = Number(m[4] || 0), mm = Number(m[5] || 0), ss = Number(m[6] || 0);
+      // Iterate a UTC guess so the ET clock matches the given wall time.
+      let guess = Date.UTC(y, mo - 1, d, hh + 5, mm, ss);
+      for (let i = 0; i < 3; i++) {
+        const parts = etParts(new Date(guess));
+        const got = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+        const want = Date.UTC(y, mo - 1, d, hh, mm, ss);
+        guess += want - got;
+      }
+      return new Date(guess);
+    }
+
+    function etParts(date) {
+      const fmt = new Intl.DateTimeFormat("en-US", {
+        timeZone: TZ,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23"
+      });
+      const map = {};
+      for (const p of fmt.formatToParts(date)) map[p.type] = p.value;
+      return {
+        year: Number(map.year),
+        month: Number(map.month),
+        day: Number(map.day),
+        hour: Number(map.hour),
+        minute: Number(map.minute),
+        second: Number(map.second)
+      };
+    }
+
+    function formatUpdated(date) {
+      return new Intl.DateTimeFormat("en-US", {
+        timeZone: TZ,
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short"
+      }).format(date);
+    }
+
+    function formatHour(date) {
+      return new Intl.DateTimeFormat("en-US", {
+        timeZone: TZ,
+        hour: "numeric"
+      }).format(date);
+    }
+
+    function formatWeekday(date, isToday) {
+      if (isToday) return "Today";
+      return new Intl.DateTimeFormat("en-US", {
+        timeZone: TZ,
+        weekday: "short"
+      }).format(date);
+    }
+
+    function showBanner(msg) {
+      if (!msg) {
+        bannerEl.classList.remove("show");
+        bannerEl.textContent = "";
+        return;
+      }
+      bannerEl.textContent = msg;
+      bannerEl.classList.add("show");
+    }
+
+    async function fetchJson(url) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 15000);
+      try {
+        const res = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
+        let data = null;
+        try { data = await res.json(); } catch (e) { data = null; }
+        if (!res.ok || (data && data.error)) {
+          const reason = (data && (data.reason || data.error)) || (res.status + " " + res.statusText);
+          const err = new Error(String(reason));
+          err.status = res.status;
+          throw err;
+        }
+        return data;
+      } finally {
+        clearTimeout(t);
+      }
+    }
+
+    async function fetchForecast() {
+      const errors = [];
+      for (const url of FORECAST_URLS) {
+        try {
+          return await fetchJson(url);
+        } catch (err) {
+          errors.push(err.message || String(err));
+        }
+      }
+      throw new Error(errors.join(" · "));
+    }
+
+    function renderWeather(data) {
+      const cur = data.current || {};
+      const isDay = cur.is_day;
+      const [label, kind] = weatherInfo(cur.weather_code, isDay);
+      $("temp").textContent = (cur.temperature_2m == null || Number.isNaN(Number(cur.temperature_2m)))
+        ? "--"
+        : String(Math.round(Number(cur.temperature_2m)));
+      $("condition").innerHTML = iconSvg(kind, isDay) + " " + label;
+      $("condition").querySelector("svg")?.classList.add("icon");
+
+      const facts = [];
+      if (cur.apparent_temperature != null) facts.push(`Feels like <b>${fmtTemp(cur.apparent_temperature)}</b>`);
+      if (cur.wind_speed_10m != null) {
+        const dir = compass(cur.wind_direction_10m);
+        facts.push(`Wind <b>${fmtNum(cur.wind_speed_10m, 0)} mph${dir ? " " + dir : ""}</b>`);
+      }
+      if (cur.relative_humidity_2m != null) facts.push(`Humidity <b>${fmtNum(cur.relative_humidity_2m, 0)}%</b>`);
+      if (cur.cloud_cover != null) facts.push(`Clouds <b>${fmtNum(cur.cloud_cover, 0)}%</b>`);
+      if (cur.precipitation != null && Number(cur.precipitation) > 0) {
+        facts.push(`Precip <b>${fmtNum(cur.precipitation, 2)} in</b>`);
+      }
+      $("facts").innerHTML = facts.join("<span aria-hidden=\"true\"> · </span>");
+
+      const now = new Date();
+      const hours = data.hourly || {};
+      const hTimes = hours.time || [];
+      let start = 0;
+      for (let i = 0; i < hTimes.length; i++) {
+        const dt = etToDate(hTimes[i]);
+        if (dt && dt.getTime() + 45 * 60 * 1000 >= now.getTime()) { start = i; break; }
+      }
+      const slice = [];
+      for (let i = start; i < hTimes.length && slice.length < 24; i++) {
+        const dt = etToDate(hTimes[i]);
+        const code = (hours.weather_code || [])[i];
+        const isHourDay = (hours.is_day || [])[i];
+        const [hLabel, hKind] = weatherInfo(code, isHourDay);
+        const pop = (hours.precipitation_probability || [])[i];
+        slice.push(`<div class="hour" title="${hLabel}">
+          <div class="t">${dt ? formatHour(dt) : ""}</div>
+          ${iconSvg(hKind, isHourDay)}
+          <span class="deg">${fmtTemp((hours.temperature_2m || [])[i])}</span>
+          <div class="pop">${pop == null ? "" : pop + "%"}</div>
+        </div>`);
+      }
+      $("hours").innerHTML = slice.length ? slice.join("") : "Hourly forecast unavailable.";
+
+      const daily = data.daily || {};
+      const dTimes = daily.time || [];
+      const today = etParts(now);
+      const rows = dTimes.map((t, i) => {
+        const dt = etToDate(t);
+        const parts = dt ? etParts(dt) : null;
+        const isToday = parts && parts.year === today.year && parts.month === today.month && parts.day === today.day;
+        const code = (daily.weather_code || [])[i];
+        const [dLabel, dKind] = weatherInfo(code, 1);
+        const pop = (daily.precipitation_probability_max || [])[i];
+        return `<div class="day">
+          <div class="name">${dt ? formatWeekday(dt, isToday) : t}</div>
+          ${iconSvg(dKind, 1)}
+          <div class="cond">${dLabel}</div>
+          <div class="hi">${fmtTemp((daily.temperature_2m_max || [])[i])}</div>
+          <div class="lo">${fmtTemp((daily.temperature_2m_min || [])[i])}</div>
+          <div class="pop">${pop == null ? "" : pop + "%"}</div>
+        </div>`;
+      });
+      $("days").innerHTML = rows.length ? rows.join("") : "7-day forecast unavailable.";
+    }
+
+    function renderAir(data) {
+      const cur = data.current || {};
+      const aqi = cur.us_aqi;
+      const level = aqiLevel(aqi);
+      const badge = $("aqi-badge");
+      badge.style.background = level.color;
+      badge.style.color = level.text;
+      $("aqi-n").textContent = aqi == null ? "--" : String(Math.round(Number(aqi)));
+      $("aqi-lbl").textContent = "US AQI";
+      $("aqi-copy").innerHTML = `<strong>${level.label}</strong>. ${level.advice}`;
+
+      const items = [
+        ["PM2.5", cur.pm2_5, "µg/m³", 1],
+        ["PM10", cur.pm10, "µg/m³", 1],
+        ["Ozone", cur.ozone, "µg/m³", 0],
+        ["NO₂", cur.nitrogen_dioxide, "µg/m³", 1],
+        ["SO₂", cur.sulphur_dioxide, "µg/m³", 1],
+        ["CO", cur.carbon_monoxide, "µg/m³", 0],
+        ["UV index", cur.uv_index, "", 1]
+      ];
+      $("pollutants").innerHTML = items.map(([k, v, u, d]) =>
+        `<div class="pollutant"><span class="k">${k}</span><span class="v">${fmtNum(v, d)}</span> <span class="u">${u}</span></div>`
+      ).join("");
+    }
+
+    async function load() {
+      refreshBtn.disabled = true;
+      const errors = [];
+      const tasks = [
+        fetchForecast().then((d) => { renderWeather(d); }).catch((e) => {
+          errors.push("Weather: " + (e.message || e));
+        }),
+        fetchJson(AQ_URL).then((d) => { renderAir(d); }).catch((e) => {
+          errors.push("Air quality: " + (e.message || e));
+        })
+      ];
+      await Promise.all(tasks);
+
+      if (errors.length === 2) {
+        showBanner("Couldn't load weather or air quality. " + errors.join(" ") + " Try again in a few minutes.");
+      } else if (errors.length === 1) {
+        showBanner("Some data didn't load. " + errors[0]);
+        $("updated").dateTime = new Date().toISOString();
+        $("updated").textContent = "Updated " + formatUpdated(new Date());
+      } else {
+        showBanner("");
+        $("updated").dateTime = new Date().toISOString();
+        $("updated").textContent = "Updated " + formatUpdated(new Date());
+      }
+      refreshBtn.disabled = false;
+    }
+
+    refreshBtn.addEventListener("click", load);
+    load();
+    setInterval(load, REFRESH_MS);
+  })();
+  </script>
+</body>
+</html>

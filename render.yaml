@@ -1,0 +1,7 @@
+# Free Render static site. Static sites do not use a paid compute plan.
+services:
+  - type: web
+    runtime: static
+    name: johnstown-weather
+    buildCommand: "true"
+    staticPublishPath: .
